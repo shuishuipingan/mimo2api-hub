@@ -1,0 +1,102 @@
+{
+  "_说明": "mimo-api-proxy 配置【示例】。复制为 config.json 后按需修改。改完重启代理生效。",
+  "_注意": "config.json 已被 .gitignore 忽略 —— 它含有你的 API Key 与本机路径，不要提交。这个示例文件可以安全提交。",
+
+  "listenHost": "127.0.0.1",
+  "listenPort": 8788,
+
+  "_apiKeys": "访问本代理需要的 API Key。仅本机使用时留空 [] 即可（免密）。想给局域网/别的设备用，先把 listenHost 改成 0.0.0.0 并在这里填 Key。生成一个：node -e \"console.log('sk-mimo-'+require('crypto').randomBytes(24).toString('hex'))\"",
+  "apiKeys": [],
+
+  "_modelScope": "自动签发 token 时的作用域，[] = 引擎支持的全部模型",
+  "modelScope": [],
+  "_exposeModels": "对外暴露的模型白名单，[] = 全部暴露",
+  "exposeModels": [],
+
+  "_autoStart": "代理启动时若发现 MiMo 引擎没在跑，自动拉起 MiMo 桌面版",
+  "autoStart": true,
+  "_appPath": "MiMo 桌面版 exe 路径，留空自动探测（各机器路径不同，别提交）",
+  "appPath": "",
+  "_engineBase": "强制指定上游引擎地址，留空 = 自动发现（推荐）",
+  "engineBase": "",
+  "startTimeoutSec": 120,
+  "logRequests": true,
+  "_requestMetrics": "在 CMD 输出 wb-proxy 风格的请求开始、HTTP 状态、TTFT、token 数与 tokens/s",
+  "requestMetrics": true,
+  "_autoDeepProbe": "检测到桌面模型目录变化后，后台自动探测新模型能力",
+  "autoDeepProbe": true,
+  "_modelCatalogPollMs": "桌面模型目录轮询间隔(毫秒)",
+  "modelCatalogPollMs": 30000,
+  "_deepProbeTokenBudget": "一次模型目录更新允许自动深测消耗的最大输入 token 预算",
+  "deepProbeTokenBudget": 200000,
+  "_deepProbeCooldownHours": "同一目录哈希再次自动深测的最小间隔(小时)",
+  "deepProbeCooldownHours": 24,
+
+  "_warmup": "启动后后台预热 pro 模型（它空闲后首个请求可能要 2~3 分钟）",
+  "warmup": true,
+  "_warmupModels": "要预热的模型，留空=两个免费文本模型",
+  "warmupModels": [],
+  "upstreamCheckMs": 20000,
+
+  "_clampMaxTokens": "把超限的 max_tokens / max_completion_tokens 自动夹到上游上限，避免 502 Param Incorrect",
+  "clampMaxTokens": true,
+  "_maxOutputTokens": "上游硬上限，实测 131072；超过就 400 Param Incorrect",
+  "maxOutputTokens": 131072,
+  "_modelMaxOutputTokens": "按模型覆盖，例如 {\"xiaomi/mimo-x-pro-preview\": 65536}",
+  "modelMaxOutputTokens": {},
+
+  "_dumpFailedRequests": "上游报错时把脱敏诊断写到 failed-requests/ 便于定位",
+  "dumpFailedRequests": true,
+  "_dumpFailedRequestBodies": "是否额外保存完整对话、system prompt 和工具定义；仅临时排障时开启",
+  "dumpFailedRequestBodies": false,
+  "_dumpDedupSec": "同类上游错误落盘的去重间隔(秒)，防止 429 风暴刷爆磁盘",
+  "dumpDedupSec": 60,
+  "_dumpKeepMax": "failed-requests/ 最多保留几个文件（超过就删最旧的）",
+  "dumpKeepMax": 40,
+  "_dumpKeepBytes": "failed-requests/ 最多占多少字节。与 dumpKeepMax 同时生效，先到先裁",
+  "dumpKeepBytes": 20971520,
+
+  "_startCooldownSec": "自动拉起 MiMo 桌面版的冷却时间(秒)，避免每个失败请求都去 spawn 一次",
+  "startCooldownSec": 60,
+
+  "_stripUnsupportedReasoningEffort": "本地引擎下两个 -preview 模型不支持 reasoning_effort（会 400），自动丢掉该参数。免桌面端直连云端时实测支持，不会丢。关掉改成 false",
+  "stripUnsupportedReasoningEffort": true,
+  "_noReasoningEffort": "额外声明哪些模型不支持 reasoning_effort，支持 * 通配前缀；-preview 结尾的会自动判定，不用写",
+  "noReasoningEffort": [
+    "xiaomi/mimo-x-flash-preview",
+    "xiaomi/mimo-x-pro-preview"
+  ],
+
+  "_mode": "运行模式: auto=优先免桌面端(直连云端免费通道)，失败回退本地引擎 | standalone=只用免桌面端 | engine=只用本地引擎(需开 MiMo 桌面端)。auto 模式下：本机没有 SSO 凭据时才允许自动拉起桌面版；有凭据时的临时故障(限流/断网)只回退到已在运行的引擎，绝不拉起桌面版",
+  "mode": "auto",
+
+  "_standaloneAutoLogin": "免桌面端会话失效时自动重新登录（优先用 accounts/mimo-sso.json 里的长效凭据，无需桌面端）",
+  "standaloneAutoLogin": true,
+  "_loginCooldownSec": "免桌面端登录失败后的节流(秒)，期间不再打 passport，防止登录风暴。看板手动点「重新登录」不受此限制",
+  "loginCooldownSec": 30,
+  "_unavailableModelTtlMs": "模型被上游判定「不在可用列表」（如按 region 裁剪）后的冷却时长(毫秒)，到期自动重试",
+  "unavailableModelTtlMs": 21600000,
+
+  "_rateLimitHoldMs": "云端 429 限流时最多替客户端等多久(毫秒)。等待 ≤ 此值的请求会被按住到限流窗口结束(对客户端透明)，超过就直接回 429 + Retry-After。0 = 不等待，立即回 429",
+  "rateLimitHoldMs": 45000,
+  "_rateLimitMaxWaitSec": "云端限流冷却上限(秒)：上游说「请约 N 秒后重试」，N 超过此值时按此值封顶",
+  "rateLimitMaxWaitSec": 120,
+
+  "_panelPassword": "看板访问密码，首次启动时用它初始化；不填则默认 admin。之后请在看板「设置」里改",
+  "panelPassword": "",
+  "_loginMaxFails": "看板登录：连续失败多少次后开始退避锁定",
+  "loginMaxFails": 5,
+  "_loginLockBaseMs": "看板登录：首次锁定时长(毫秒)，之后指数增长",
+  "loginLockBaseMs": 5000,
+  "_loginLockMaxMs": "看板登录：锁定时长上限(毫秒)",
+  "loginLockMaxMs": 900000,
+
+  "_keepAliveMs": "服务端 keep-alive 空闲窗口(毫秒)。Node 默认只有 5000，空闲 5 秒就单向断开连接，客户端下次复用即 ECONNRESET → 表现为「每次任务前都要重连几次」。实测 gap=7s/15s/30s 必挂，故抬到 120000。改完重启生效",
+  "keepAliveMs": 120000,
+  "_maxRequestBodyBytes": "OpenAI 请求体上限(字节)，超出返回 HTTP 413",
+  "maxRequestBodyBytes": 16777216,
+  "_requestTimeoutMs": "单个请求总时长上限(毫秒)。默认 15 分钟；0 = 显式不限制",
+  "requestTimeoutMs": 900000,
+  "_upstreamIdleTimeoutMs": "上游连续没有返回任何数据的超时(毫秒)。收到流数据会重置；0 = 显式不限制",
+  "upstreamIdleTimeoutMs": 180000
+}

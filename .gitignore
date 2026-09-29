@@ -1,0 +1,30 @@
+# 运行时产生的本地数据（含凭据，绝不提交）
+accounts/
+usage/
+failed-requests/
+.proxy-state.json
+*.log
+
+# 真实配置（含 API Key 与本机路径）—— 使用 config.example.json 作为模板
+config.json
+
+# 本机调试 / 逆向用的临时脚本与产物
+probe-*.mjs
+probe-*.json
+repro-*.mjs
+audit-*.mjs
+summarize-*.mjs
+platform-map/
+platform-chunks/
+platform-main.js
+*.corrupt-*
+
+# 内部文档（不随仓库发布）
+使用说明.md
+GUI使用说明.md
+
+# 依赖与系统文件
+node_modules/
+__pycache__/
+.DS_Store
+Thumbs.db

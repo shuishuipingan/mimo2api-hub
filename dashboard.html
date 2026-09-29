@@ -1,0 +1,1329 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MiMo API 网关看板</title>
+<style>
+:root{
+  --bg:#f8fafc; --panel:#ffffff; --panel2:#f1f5f9; --panel3:#e2e8f0;
+  --line:#e2e8f0; --line-hover:#cbd5e1;
+  --fg:#0f172a; --dim:#64748b; --dim-light:#94a3b8;
+  --accent:#2563eb; --accent-hover:#1d4ed8; --accent-soft:rgba(37,99,235,.08);
+  --accent2:#16a34a; --accent2-soft:rgba(22,163,74,.1);
+  --warn:#d97706; --warn-soft:rgba(217,119,6,.1);
+  --think:#7c3aed; --think-soft:rgba(124,58,237,.08);
+  --bad:#dc2626; --bad-soft:rgba(220,38,38,.08);
+  --shadow-sm:0 1px 2px 0 rgba(15,23,42,.05);
+  --shadow:0 1px 3px 0 rgba(15,23,42,.06),0 1px 2px -1px rgba(15,23,42,.04);
+  --shadow-md:0 4px 6px -2px rgba(15,23,42,.06),0 2px 4px -2px rgba(15,23,42,.04);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased}
+header{padding:14px 24px;border-bottom:1px solid var(--line);display:flex;
+  align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  position:sticky;top:0;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);z-index:10;box-shadow:var(--shadow-sm)}
+h1{margin:0;font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--fg);white-space:nowrap}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent2);
+  margin-right:7px;vertical-align:middle;box-shadow:0 0 0 2px rgba(22,163,74,.2)}
+.dot.err{background:var(--bad);box-shadow:0 0 0 2px rgba(220,38,38,.2)}
+.dot.warn{background:var(--warn);box-shadow:0 0 0 2px rgba(217,119,6,.2)}
+/* ---- 顶部 tab 导航（对齐 wb-proxy）---- */
+.main-nav{display:inline-flex;gap:4px;background:var(--panel2);padding:4px;border-radius:10px;border:1px solid var(--line)}
+.main-nav-btn{background:transparent;border:1px solid transparent;color:var(--dim);padding:6px 14px;
+  border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;
+  align-items:center;gap:6px;transition:all .15s ease;font-family:inherit}
+.main-nav-btn:hover{color:var(--fg);background:#fff}
+.main-nav-btn.active{background:#fff;color:var(--fg);border-color:var(--line);box-shadow:var(--shadow-sm);font-weight:600}
+.main-nav-btn .nb{display:inline-block;min-width:18px;padding:0 5px;height:16px;line-height:16px;
+  border-radius:999px;background:var(--panel3);color:var(--dim);font-size:10px;font-weight:700;text-align:center}
+.main-nav-btn.active .nb{background:var(--accent-soft);color:var(--accent)}
+.meta{color:var(--dim);font-size:12px;text-align:right;line-height:1.65}
+.meta b{color:var(--fg);font-weight:600}
+main{padding:20px 24px 60px;max-width:1320px;margin:0 auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin-bottom:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 17px;box-shadow:var(--shadow);min-width:0}
+.card .k{color:var(--dim);font-size:12px;margin-bottom:5px;font-weight:600}
+.card .v{font-size:23px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.5px;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .s{color:var(--dim);font-size:11px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card.accent .v{color:var(--accent)}
+.card.accent2 .v{color:var(--accent2)}
+.card.think .v{color:var(--think)}
+.card.err .v{color:var(--bad)}
+.card.warn .v{color:var(--warn)}
+section{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:17px 19px;margin-bottom:18px;box-shadow:var(--shadow)}
+section h2{margin:0 0 13px;font-size:13px;font-weight:700;color:var(--dim);
+  text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+section h2 em{color:var(--fg);font-style:normal;text-transform:none;letter-spacing:0;margin-left:4px}
+section h2 .hint-inline{color:var(--dim-light);font-weight:400;font-size:11px;text-transform:none;letter-spacing:0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:right;padding:9px 12px;border-bottom:1px solid var(--line);
+  font-variant-numeric:tabular-nums;vertical-align:middle}
+th{color:var(--dim);font-weight:600;font-size:12px;white-space:nowrap;background:var(--panel2)}
+th:first-child{border-top-left-radius:8px;border-bottom-left-radius:8px}
+th:last-child{border-top-right-radius:8px;border-bottom-right-radius:8px}
+th:first-child,td:first-child{text-align:left}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:rgba(241,245,249,.6)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;border-radius:8px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;
+  background:var(--panel2);border:1px solid var(--line);color:var(--dim);white-space:nowrap;font-weight:600}
+.badge.ok{background:var(--accent2-soft);border-color:rgba(22,163,74,.3);color:var(--accent2)}
+.badge.bad{background:var(--bad-soft);border-color:rgba(220,38,38,.3);color:var(--bad)}
+.badge.acc{background:var(--accent-soft);border-color:rgba(37,99,235,.3);color:var(--accent)}
+.badge.warn{background:var(--warn-soft);border-color:rgba(217,119,6,.3);color:var(--warn)}
+.badge.mini{padding:1px 6px;font-size:10px}
+button{font:inherit;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;
+  border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer;
+  transition:.15s;white-space:nowrap}
+button:hover{border-color:var(--line-hover);background:var(--panel2)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{background:var(--accent-hover)}
+button.danger{color:var(--bad);border-color:rgba(220,38,38,.3)}
+button.danger:hover{background:var(--bad-soft)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select{font:inherit;font-size:13px;padding:7px 11px;border-radius:8px;border:1px solid var(--line);
+  background:var(--panel);color:var(--fg);outline:none;transition:.15s}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+input[type=password]{letter-spacing:2px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.kv:last-child{border-bottom:none}
+.kv .k{color:var(--dim);white-space:nowrap}
+.kv .v{font-weight:600;text-align:right;word-break:break-all}
+/* ---- 模式选择卡（对齐 wb-proxy 的 realm-card）---- */
+.mode-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:13px 17px;box-shadow:var(--shadow);cursor:pointer;transition:all .15s ease;
+  position:relative;display:flex;flex-direction:column;justify-content:space-between;min-height:100px}
+.mode-card:hover{border-color:var(--line-hover);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.mode-card.active{border-color:var(--accent);background:#fff;box-shadow:0 0 0 1px var(--accent),var(--shadow-md)}
+.mode-card .mc-t{font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+.mode-card .mc-v{font-size:19px;font-weight:700;letter-spacing:-.4px;margin:6px 0 2px}
+.mode-card .mc-s{font-size:11px;color:var(--dim)}
+.bar-wrap{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.bar-track{flex:1;max-width:90px;height:6px;border-radius:3px;background:var(--panel3);overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;background:var(--accent);min-width:2px}
+.bar-fill.ok{background:var(--accent2)}
+.bar-fill.think{background:var(--think)}
+.bar-fill.bad{background:var(--bad)}
+/* ---- 暗色终端日志（对齐 wb-proxy 的 log-terminal）---- */
+.term{background:#0f172a;border:1px solid #1e293b;border-radius:10px;
+  padding:10px 12px;max-height:560px;overflow:auto;font-family:Consolas,Monaco,'Courier New',monospace}
+.term-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:8px 12px;background:#1e293b;border-radius:10px 10px 0 0;border:1px solid #1e293b;border-bottom:none}
+.term-bar .ttl{color:#cbd5e1;font-size:12px;font-weight:600;display:flex;align-items:center;gap:7px}
+.term-bar .dots{display:flex;gap:5px}
+.term-bar .dots i{width:9px;height:9px;border-radius:50%;display:block}
+.term-wrap{border-radius:10px;overflow:hidden}
+.term-wrap .term{border-radius:0 0 10px 10px}
+.log-line{display:flex;align-items:flex-start;gap:8px;padding:3px 6px;border-radius:4px;
+  font-size:12px;line-height:1.55;transition:background .1s}
+.log-line:hover{background:rgba(255,255,255,.05)}
+.log-ts{color:#64748b;font-variant-numeric:tabular-nums;flex-shrink:0;user-select:none}
+.log-tag{font-size:11px;font-weight:600;padding:1px 5px;border-radius:3px;flex-shrink:0;
+  background:rgba(148,163,184,.12);color:#94a3b8;user-select:none}
+.log-tag.tag-ok{background:rgba(22,163,74,.18);color:#4ade80}
+.log-tag.tag-err{background:rgba(244,63,94,.18);color:#fb7185}
+.log-tag.tag-stream{background:rgba(124,58,237,.18);color:#c084fc}
+.log-msg{color:#cbd5e1;flex:1;word-break:break-all;white-space:pre-wrap}
+.log-dim{color:#64748b}
+.log-num{color:#7dd3fc}
+.log-empty{padding:48px 24px;text-align:center;color:#64748b;font-size:13px;font-family:inherit}
+/* ---- 模态弹窗（对齐 wb-proxy 的 modal）---- */
+.modal-mask{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);
+  backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px;z-index:800}
+.modal-mask.show{display:flex}
+.modal{background:#fff;border:1px solid var(--line);border-radius:14px;
+  width:min(620px,100%);max-height:88vh;overflow:auto;
+  box-shadow:0 20px 25px -5px rgba(0,0,0,.1),0 8px 10px -6px rgba(0,0,0,.05)}
+.modal-hd{display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px;border-bottom:1px solid var(--line)}
+.modal-hd h2{margin:0;font-size:15px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--fg)}
+.modal-x{background:none;border:none;color:var(--dim);font-size:22px;line-height:1;padding:0 4px;cursor:pointer}
+.modal-x:hover{color:var(--fg)}
+.modal-bd{padding:18px 20px}
+.modal-ft{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+/* ---- 卡片式 Key 列表（对齐 wb-proxy 的 key-card）---- */
+.key-card{background:#fff;border:1px solid var(--line);border-radius:12px;
+  padding:15px 19px;margin-bottom:12px;box-shadow:var(--shadow);transition:all .15s ease}
+.key-card:hover{border-color:var(--line-hover);box-shadow:var(--shadow-md)}
+.key-card.disabled{opacity:.72;background:rgba(241,245,249,.5)}
+.key-card-main{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.key-name{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.key-val{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;
+  color:var(--dim);margin-top:4px;word-break:break-all}
+/* ---- 分页 ---- */
+.pg{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.pg-info{color:var(--dim);font-size:12px;margin-right:auto}
+/* ---- 登录层 ---- */
+#panelGate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:600;padding:20px}
+#panelGate .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:28px 26px;width:min(390px,100%);box-shadow:0 10px 30px rgba(15,23,42,.12)}
+#panelGate .t{font-size:17px;font-weight:700;margin-bottom:5px}
+#panelGate .st{font-size:12px;color:var(--dim);margin-bottom:18px}
+#panelGate input{width:100%;margin-bottom:6px}
+#panelGate button{width:100%;padding:9px 12px;font-size:13px;margin-top:8px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:#0f172a;color:#fff;padding:11px 20px;border-radius:10px;font-size:13px;font-weight:500;
+  box-shadow:var(--shadow-md);opacity:0;transition:.28s;z-index:900;pointer-events:none;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.hint{color:var(--dim);font-size:12px;margin-top:9px;line-height:1.6}
+.empty{color:var(--dim-light);text-align:center;padding:22px;font-size:13px}
+.copybox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:11px 13px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;
+  white-space:pre-wrap;word-break:break-all;color:var(--fg);line-height:1.7}
+.stepline{display:flex;gap:10px;align-items:flex-start;padding:8px 0;font-size:13px}
+.stepline .n{flex:none;width:20px;height:20px;border-radius:50%;background:var(--accent-soft);color:var(--accent);
+  font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px}
+@media (max-width:900px){
+  header{padding:12px 16px}
+  main{padding:16px 12px 60px}
+  section{padding:14px;border-radius:12px}
+  .cards{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+  .card{padding:10px 12px}
+  .card .v{font-size:18px}
+  button{padding:5px 10px;font-size:11px}
+  .main-nav{width:100%;overflow-x:auto}
+  .main-nav-btn{padding:6px 11px;font-size:12px}
+  h1{font-size:15px}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ 登录层 ============ -->
+<div id="panelGate">
+  <div class="box">
+    <div class="t">MiMo API 网关看板</div>
+    <div class="st">请输入面板访问密码</div>
+    <input type="password" id="pw" placeholder="面板密码" autocomplete="current-password">
+    <div id="gateErr" style="font-size:12px;color:var(--bad);min-height:17px"></div>
+    <button class="primary" id="loginBtn">进入面板</button>
+    <div id="defaultHint" style="display:none;font-size:11px;color:var(--warn);margin-top:12px">
+      当前仍在使用默认密码 <b>admin</b>，登录后请在「设置」中修改。
+    </div>
+  </div>
+</div>
+
+<!-- ============ 顶栏 + tab 导航 ============ -->
+<header>
+  <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+    <h1><span class="dot" id="statusDot"></span>MiMo API 网关看板</h1>
+    <nav class="main-nav">
+      <button class="main-nav-btn active" id="btnNavGateway" onclick="switchMainTab('gateway')">网关与接入</button>
+      <button class="main-nav-btn" id="btnNavAnalytics" onclick="switchMainTab('analytics')">数据指标</button>
+      <button class="main-nav-btn" id="btnNavModels" onclick="switchMainTab('models')">模型库</button>
+      <button class="main-nav-btn" id="btnNavLogs" onclick="switchMainTab('logs')">请求流水</button>
+      <button class="main-nav-btn" id="btnNavSettings" onclick="switchMainTab('settings')">设置</button>
+    </nav>
+  </div>
+  <div class="meta" id="meta"></div>
+</header>
+
+<main>
+
+<!-- ==================== 1. 网关与接入 ==================== -->
+<div id="pageGateway">
+
+  <!-- 运行模式三卡（对齐 wb-proxy 的 realm-card 布局） -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:18px">
+    <div class="mode-card active" id="cardStandalone">
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+          <span class="mc-t">免桌面端 · 直连云端</span>
+          <span class="badge ok mini" id="saBadge">检测中</span>
+        </div>
+        <div class="mc-v" id="saState" style="color:var(--accent2)">—</div>
+        <div class="mc-s">不需要启动 MiMo 桌面端</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px">
+        <span class="mc-s">小米账号 <b id="saUser" style="color:var(--fg)">—</b></span>
+        <span class="badge mini" id="saCookie">0 cookie</span>
+      </div>
+    </div>
+
+    <div class="mode-card" id="cardEngine">
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+          <span class="mc-t">本地引擎 · 桌面端</span>
+          <span class="badge mini" id="engBadge">未使用</span>
+        </div>
+        <div class="mc-v" id="engState">—</div>
+        <div class="mc-s">多出 ASR / TTS 语音模型</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px">
+        <span class="mc-s mono" id="engAddr" style="font-size:10px">—</span>
+        <span class="badge mini" id="engModelCount">0 模型</span>
+      </div>
+    </div>
+
+    <div class="mode-card" style="cursor:default">
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+          <span class="mc-t">当前运行模式</span>
+          <span class="badge acc mini" id="modeBadge">—</span>
+        </div>
+        <div class="mc-v" id="modeName" style="color:var(--accent)">—</div>
+        <div class="mc-s" id="modeDesc">—</div>
+      </div>
+      <div class="toolbar" style="margin-top:10px">
+        <button class="primary" id="btnSwitchMode" style="width:100%">切换模式</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <!-- 接入信息 -->
+  <section>
+    <h2>接入信息 <em>复制即用</em></h2>
+    <div class="grid2">
+      <div>
+        <div class="kv"><span class="k">Base URL</span><span class="v mono" id="iBase">—</span></div>
+        <div class="kv"><span class="k">API Key</span><span class="v mono" id="iKey">—</span></div>
+        <div class="kv"><span class="k">推荐模型</span><span class="v mono" id="recModel">xiaomi/mimo-v2.6-pro</span></div>
+        <div class="kv"><span class="k">短别名</span><span class="v mono">mimo-pro / mimo-flash</span></div>
+      </div>
+      <div>
+        <div class="kv"><span class="k">上下文窗口</span><span class="v">1,000,000 tokens</span></div>
+        <div class="kv"><span class="k">最大输出</span><span class="v" id="iMaxOut">131,072（代理已夹取）</span></div>
+        <div class="kv"><span class="k">已运行</span><span class="v" id="iUptime">—</span></div>
+        <div class="kv"><span class="k">监听端口</span><span class="v mono" id="iPort">—</span></div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px">
+      <div>
+        <div class="kv"><span class="k">免费通道剩余</span><span class="v" id="quotaFree">—</span></div>
+        <div class="kv"><span class="k">免费套餐 / 重置</span><span class="v" id="quotaFreePlan">—</span></div>
+        <div class="kv"><span class="k">账户额度状态</span><span class="v" id="quotaState">—</span></div>
+        <div class="kv"><span class="k">开放平台余额</span><span class="v" id="quotaBalance">—</span></div>
+        <div class="kv"><span class="k">Token Plan 剩余</span><span class="v" id="quotaPlan">—</span></div>
+      </div>
+      <div>
+        <div class="kv"><span class="k">额度来源</span><span class="v" id="quotaSource">—</span></div>
+        <div class="kv"><span class="k">平台凭据</span><span class="v" id="quotaCookieSrc">—</span></div>
+        <div class="kv"><span class="k">更新时间</span><span class="v" id="quotaAt">—</span></div>
+        <div class="kv"><span class="k">本地累计</span><span class="v" id="quotaLocal">—</span></div>
+      </div>
+    </div>
+    <div class="hint" id="quotaHint" style="display:none"></div>
+    <div class="toolbar" style="margin-top:14px">
+      <button id="btnCopyCurl">复制 curl</button>
+      <button id="btnCopyPy">复制 Python</button>
+      <button id="btnWarmup">立即预热</button>
+      <button id="btnReconnect">重连上游</button>
+      <button id="quotaLogin">登录开放平台</button>
+      <button class="primary" id="btnTest">测试调用</button>
+    </div>
+    <div class="hint">说明：这里的「额度」是<b>付费开放平台</b>（platform.xiaomimimo.com）的数据；桌面免费通道本身不计费，额度走 Token Plan。免费通道的用量请看「数据指标 → 本地累计」。</div>
+  </section>
+
+  <!-- 三步上手 -->
+  <section>
+    <h2>三步上手</h2>
+    <div class="stepline"><span class="n">1</span><div><b>在「设置」里生成一个 API Key</b><br><span style="color:var(--dim);font-size:12px">也可以直接用 config.json 里的；两边都没配时本机免密</span></div></div>
+    <div class="stepline"><span class="n">2</span><div><b>客户端填 Base URL 和 Key</b><br><span style="color:var(--dim);font-size:12px" class="mono" id="step2Base">http://127.0.0.1:8788/v1</span></div></div>
+    <div class="stepline"><span class="n">3</span><div><b>模型名写 <span class="mono" id="step3Model">xiaomi/mimo-v2.6-pro</span> 或 <span class="mono">mimo-pro</span></b><br><span style="color:var(--dim);font-size:12px">支持 OpenAI 兼容的任何客户端：Cherry Studio / ChatBox / Cline / Dify / SillyTavern…</span></div></div>
+  </section>
+
+  <!-- 免桌面端控制 -->
+  <section>
+    <h2>免桌面端控制 <em id="saTitle">—</em></h2>
+    <div class="grid2">
+      <div>
+        <div class="kv"><span class="k">凭据来源</span><span class="v" id="saCred">—</span></div>
+        <div class="kv"><span class="k">小米账号</span><span class="v" id="saUser2">—</span></div>
+        <div class="kv"><span class="k">会话 cookie</span><span class="v" id="saCookie2">—</span></div>
+        <div class="kv"><span class="k">会话缓存时间</span><span class="v" id="saCacheAt">—</span></div>
+      </div>
+      <div>
+        <div class="kv"><span class="k">上游通道</span><span class="v mono" style="font-size:11px">mimo-server-cn.xiaomimimo.com</span></div>
+        <div class="kv"><span class="k">可用文本模型</span><span class="v" id="saModelCount">—</span></div>
+        <div class="kv"><span class="k">限流冷却</span><span class="v" id="saCooldown">—</span></div>
+        <div class="kv"><span class="k">说明</span><span class="v" style="font-weight:400;font-size:12px;text-align:right">首次需在桌面端登录过一次，之后凭据长效缓存；429 限流由代理自动等待，不会反复登录</span></div>
+      </div>
+    </div>
+    <div class="toolbar" style="margin-top:14px">
+      <button class="primary" id="saLogin">登录 / 刷新会话</button>
+      <button id="quotaRefresh">刷新账户额度</button>
+      <button id="saTest">测试免桌面端</button>
+      <button class="danger" id="saLogout">清除会话缓存</button>
+    </div>
+    <div class="hint" id="saHint"></div>
+  </section>
+
+  <!-- 账号池（对标 wb-proxy 账号管理） -->
+  <section>
+    <h2>账号池 <em id="poolTitle">0 个账号</em> <span class="badge mini" id="poolBadge" style="margin-left:8px">—</span></h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>账号</th><th>来源</th><th>状态</th><th>最近使用</th><th style="width:290px">操作</th>
+        </tr></thead>
+        <tbody id="poolRows"><tr><td colspan="5" class="empty">账号池为空 —— 旧登录态会自动迁移进来，或用下方按钮添加</td></tr></tbody>
+      </table>
+    </div>
+    <div class="toolbar" style="margin-top:14px;flex-wrap:wrap;gap:8px">
+      <button class="primary" id="poolAddPwd">账号密码登录</button>
+      <button id="poolAddManual">导入凭据</button>
+      <button id="poolImportDesktop">从桌面端导入</button>
+      <button id="poolRefreshAll">全部重派生会话</button>
+      <button id="poolEnableAll">全部启用</button>
+      <button id="poolExport">导出账号池</button>
+      <button id="poolImport">导入账号池</button>
+    </div>
+    <div class="hint" id="poolHint">
+      说明：passToken 是账号级长效凭据（导入一次长期有效）。429 限流只冷却肇事的账号并自动轮换下一个；
+      小米已关闭密码直连接口，「账号密码登录」会在端点恢复后自动可用，当前请优先用桌面端导入 / 凭据导入。
+    </div>
+  </section>
+
+</div>
+
+<!-- ==================== 2. 数据指标 ==================== -->
+<div id="pageAnalytics" style="display:none">
+  <div class="cards" id="kpiCards"></div>
+
+  <section>
+    <h2>模型调用分布 <em id="distTotal">—</em></h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>模型</th><th>调用次数</th><th>占比</th><th style="width:130px">分布</th></tr></thead>
+        <tbody id="distRows"><tr><td colspan="4" class="empty">暂无数据</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>按 API Key 统计 <em id="keyStatTotal">—</em></h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Key 名称</th><th>调用次数</th><th>占比</th><th style="width:130px">分布</th></tr></thead>
+        <tbody id="keyStatRows"><tr><td colspan="4" class="empty">暂无数据</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>延迟与稳定性</h2>
+    <div class="grid2">
+      <div>
+        <div class="kv"><span class="k">平均延迟</span><span class="v" id="stAvg">—</span></div>
+        <div class="kv"><span class="k">最快 / 最慢</span><span class="v" id="stMinMax">—</span></div>
+        <div class="kv"><span class="k">流式请求占比</span><span class="v" id="stStream">—</span></div>
+      </div>
+      <div>
+        <div class="kv"><span class="k">成功 / 失败</span><span class="v" id="stOkFail">—</span></div>
+        <div class="kv"><span class="k">成功率</span><span class="v" id="stRate">—</span></div>
+        <div class="kv"><span class="k">最后请求</span><span class="v" id="stLast">—</span></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ==================== 3. 模型库 ==================== -->
+<div id="pageModels" style="display:none">
+  <section>
+    <h2>可用模型 <em id="modelCount">0</em> <span class="hint-inline" id="modelMode"></span></h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>模型 ID</th><th>短别名</th><th>上下文</th><th>最大输出</th><th>reasoning_effort</th><th>说明</th></tr></thead>
+        <tbody id="modelRows"><tr><td colspan="6" class="empty">加载中…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="hint">
+      模型目录会自动轮询；新版本或新模型出现后，代理在空闲时自动探测能力并缓存结果。上下文/最大输出优先显示官方声明，深测结果会标注时间和置信度。
+    </div>
+    <div class="toolbar" style="margin-top:12px"><button id="btnProbeAll">立即重新探测当前模型</button><span class="hint-inline" id="probeHint"></span></div>
+  </section>
+
+  <section>
+    <h2>模型能力速查</h2>
+    <div class="grid2">
+      <div>
+        <div class="kv"><span class="k">上下文窗口</span><span class="v">1,000,000 tokens</span></div>
+        <div class="kv"><span class="k">实测可用上限</span><span class="v">1,048,576（2²⁰）</span></div>
+        <div class="kv"><span class="k">超限行为</span><span class="v" style="color:var(--warn)">静默截断，输出为空</span></div>
+        <div class="kv"><span class="k">建议输入上限</span><span class="v">~90 万 tokens</span></div>
+      </div>
+      <div>
+        <div class="kv"><span class="k">输出规格</span><span class="v">32,768 tokens</span></div>
+        <div class="kv"><span class="k">网关硬上限</span><span class="v">131,072（超过 502）</span></div>
+        <div class="kv"><span class="k">工具调用</span><span class="v">✅ 支持</span></div>
+        <div class="kv"><span class="k">输入模态</span><span class="v">text / image / audio</span></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ==================== 4. 请求流水 ==================== -->
+<div id="pageLogs" style="display:none">
+  <section>
+    <h2>请求流水 <em id="logCount">最近 200 条</em></h2>
+    <div class="toolbar" style="margin-bottom:12px">
+      <button id="btnRefreshLogs">刷新</button>
+      <button id="btnExportLogs">导出 JSON</button>
+      <button class="danger" id="btnResetLogs">清空流水</button>
+      <span style="color:var(--dim);font-size:12px;margin-left:auto">每 8 秒自动刷新</span>
+    </div>
+
+    <!-- 暗色终端视图（对齐 wb-proxy 的 log-terminal） -->
+    <div class="term-wrap">
+      <div class="term-bar">
+        <span class="ttl">
+          <span class="dots">
+            <i style="background:#ef4444"></i><i style="background:#eab308"></i><i style="background:#22c55e"></i>
+          </span>
+          request-stream
+        </span>
+        <span style="color:#64748b;font-size:11px" id="termInfo">—</span>
+      </div>
+      <div class="term" id="termBody">
+        <div class="log-empty">暂无请求</div>
+      </div>
+    </div>
+
+    <div class="pg">
+      <span class="pg-info" id="pgInfo">—</span>
+      <button id="pgFirst">« 首页</button>
+      <button id="pgPrev">‹ 上一页</button>
+      <button id="pgNext">下一页 ›</button>
+      <button id="pgLast">末页 »</button>
+    </div>
+
+    <details style="margin-top:14px">
+      <summary style="cursor:pointer;color:var(--dim);font-size:12px;font-weight:600">表格视图</summary>
+      <div class="table-wrap" style="margin-top:10px">
+        <table>
+          <thead><tr><th>时间</th><th>模型</th><th>Key</th><th>状态</th><th>输入</th><th>输出</th><th>耗时</th></tr></thead>
+          <tbody id="usageRows"><tr><td colspan="7" class="empty">暂无请求</td></tr></tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+</div>
+
+<!-- ==================== 5. 设置 ==================== -->
+<div id="pageSettings" style="display:none">
+  <section>
+    <h2>API Key 管理 <em id="keyCount">0 个</em></h2>
+    <div class="row" style="margin-bottom:14px">
+      <input id="newKeyName" placeholder="Key 名称，例如 给手机用" style="flex:1;min-width:200px">
+      <button class="primary" id="addKeyBtn">+ 生成新 Key</button>
+    </div>
+    <div id="keyList"><div class="empty">加载中…</div></div>
+    <div class="hint">Key 保存在 <span class="mono">accounts/settings.json</span>，重启保持生效；删除即刻失效。用量按 Key 分别统计。</div>
+  </section>
+
+  <section>
+    <h2>面板访问密码 <em id="pwdState"></em></h2>
+    <div class="row">
+      <input type="password" id="pw1" placeholder="新密码" style="flex:1;min-width:150px">
+      <input type="password" id="pw2" placeholder="再输一次" style="flex:1;min-width:150px">
+      <button class="primary" id="setPwBtn">保存</button>
+    </div>
+    <div class="hint">密码以 PBKDF2-SHA256 摘要保存到 <span class="mono">accounts/settings.json</span>，不存明文。登录态 12 小时过期。</div>
+  </section>
+
+  <section>
+    <h2>运行信息</h2>
+    <div class="grid2">
+      <div>
+        <div class="kv"><span class="k">进程 PID</span><span class="v" id="sPid">—</span></div>
+        <div class="kv"><span class="k">监听地址</span><span class="v mono" id="sAddr">—</span></div>
+        <div class="kv"><span class="k">已运行</span><span class="v" id="sUptime">—</span></div>
+        <div class="kv"><span class="k">数据目录</span><span class="v mono" style="font-size:11px">accounts/ · usage/</span></div>
+      </div>
+      <div>
+        <div class="kv"><span class="k">运行模式</span><span class="v" id="sMode">—</span></div>
+        <div class="kv"><span class="k">自动拉起桌面端</span><span class="v" id="sAuto">—</span></div>
+        <div class="kv"><span class="k">启动预热</span><span class="v" id="sWarm">—</span></div>
+        <div class="kv"><span class="k">上游</span><span class="v" id="sUp" style="font-size:11px">—</span></div>
+      </div>
+    </div>
+    <div class="toolbar" style="margin-top:14px">
+      <button class="danger" id="logoutBtn">退出登录</button>
+    </div>
+  </section>
+</div>
+
+</main>
+
+<!-- ============ 模态弹窗（对齐 wb-proxy 的 modal）============ -->
+<div class="modal-mask" id="keyModal">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2 id="kmTitle">API Key</h2>
+      <button class="modal-x" onclick="closeModal('keyModal')">×</button>
+    </div>
+    <div class="modal-bd">
+      <div style="font-size:12px;color:var(--dim);margin-bottom:8px">完整 Key（请妥善保存，勿外传）</div>
+      <div class="copybox" id="kmKey">—</div>
+      <div class="row" style="margin-top:14px">
+        <button class="primary" id="kmCopy">复制</button>
+        <button id="kmCopyCurl">复制 curl 示例</button>
+        <button id="kmCopyPy">复制 Python 示例</button>
+      </div>
+      <div class="hint">Base URL <span class="mono" id="kmBase">—</span>　模型 <span class="mono" id="kmModel">xiaomi/mimo-v2.6-pro</span></div>
+    </div>
+    <div class="modal-ft">
+      <button onclick="closeModal('keyModal')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="confirmModal">
+  <div class="modal" style="width:min(420px,100%)">
+    <div class="modal-hd">
+      <h2 id="cmTitle">确认</h2>
+      <button class="modal-x" onclick="closeModal('confirmModal')">×</button>
+    </div>
+    <div class="modal-bd">
+      <div id="cmBody" style="font-size:13px;line-height:1.7">—</div>
+    </div>
+    <div class="modal-ft">
+      <button onclick="closeModal('confirmModal')">取消</button>
+      <button class="danger" id="cmOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let STATE = { stats:null, keys:[], models:[], usage:[], sa:null, quota:null };
+let currentMainTab = 'gateway';
+
+/* ---------------- 工具 ---------------- */
+function toast(msg, ms=2400){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), ms);
+}
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtTime(iso){ if(!iso) return '—'; try{ return new Date(iso).toLocaleString('zh-CN',{hour12:false}); }catch{ return '—'; } }
+function fmtDur(sec){
+  if(sec==null) return '—';
+  const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
+  return h? `${h}h ${m}m` : m? `${m}m ${s}s` : `${s}s`;
+}
+function fmtNum(n){ return (n||0).toLocaleString('en-US'); }
+function recommendedModel(){
+  const ids = (STATE.stats?.models || STATE.models?.map(m=>m.id) || []);
+  return ids.find(id=>/mimo-v[0-9.]+-pro$/.test(id)) || ids[0] || 'xiaomi/mimo-v2.6-pro';
+}
+function bar(pct, cls=''){
+  const w = Math.max(2, Math.min(100, pct||0));
+  return `<div class="bar-wrap"><div class="bar-track"><div class="bar-fill ${cls}" style="width:${w}%"></div></div><span style="font-size:11px;color:var(--dim);min-width:38px;text-align:right">${(pct||0).toFixed(1)}%</span></div>`;
+}
+
+async function api(path, opts={}){
+  const r = await fetch(path, { credentials:'same-origin', headers:{'Content-Type':'application/json'}, ...opts });
+  if (r.status === 401 && !path.includes('/api/login')) { showGate(); throw new Error('未登录'); }
+  return r.json();
+}
+
+/* ---------------- tab 切换（对齐 wb-proxy） ---------------- */
+function switchMainTab(tab){
+  currentMainTab = tab;
+  const tabs = [
+    ['gateway',  'btnNavGateway',  'pageGateway'],
+    ['analytics','btnNavAnalytics','pageAnalytics'],
+    ['models',   'btnNavModels',   'pageModels'],
+    ['logs',     'btnNavLogs',     'pageLogs'],
+    ['settings', 'btnNavSettings', 'pageSettings']
+  ];
+  tabs.forEach(([name, btnId, pageId])=>{
+    const btn = document.getElementById(btnId), page = document.getElementById(pageId);
+    if(!btn || !page) return;
+    const on = (name === tab);
+    btn.classList.toggle('active', on);
+    page.style.display = on ? 'block' : 'none';
+  });
+  if(tab === 'analytics') renderAnalytics();
+  if(tab === 'logs') refreshUsage();
+  if(tab === 'settings') refreshKeys();
+  try { localStorage.setItem('mimo_tab', tab); } catch {}
+}
+
+/* ---------------- 登录 ---------------- */
+function showGate(){ $('#panelGate').style.display='flex'; }
+function hideGate(){ $('#panelGate').style.display='none'; }
+async function doLogin(){
+  const j = await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#pw').value})});
+  if(j.ok){
+    hideGate();
+    if(j.mustChangePassword){ $('#defaultHint').style.display='block'; toast('当前是默认密码，建议到「设置」修改', 4500); }
+    refreshAll();
+  } else {
+    $('#gateErr').textContent = j.error || '登录失败';
+    $('#pw').value='';
+  }
+}
+$('#loginBtn').onclick = doLogin;
+$('#pw').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+
+/* ---------------- 概览 ---------------- */
+async function refreshStats(){
+  const j = await api('/api/stats');
+  if(!j.ok) return;
+  STATE.stats = j;
+  const ready = j.upstreamReady;
+  $('#statusDot').className = 'dot' + (ready?'':' err');
+  const base = `http://127.0.0.1:${j.port}/v1`;
+  $('#iBase').textContent = base;
+  $('#step2Base').textContent = base;
+  $('#iPort').textContent = j.port;
+  $('#iUptime').textContent = fmtDur(j.uptimeSec);
+  $('#iMaxOut').textContent = fmtNum(j.maxOutputTokens) + '（代理已夹取）';
+  $('#meta').innerHTML = `Base URL <b>${base}</b><br>运行 <b>${fmtDur(j.uptimeSec)}</b> · 上游 <b>${esc(j.upstream||'未就绪')}</b>`;
+
+  const u = j.usage || {};
+  $('#cards').innerHTML = [
+    ['总请求数', fmtNum(u.total), `成功 ${u.ok} · 失败 ${u.fail}`, 'accent'],
+    ['成功率', (u.successRate||0)+'%', u.total? `基于 ${u.total} 次请求` : '暂无数据', u.successRate>=99?'accent2':(u.successRate>=90?'warn':'err')],
+    ['平均耗时', (u.avgLatencyMs||0)+' ms', '含上游生成时间', ''],
+    ['Token 用量', fmtNum((u.tokensIn||0)+(u.tokensOut||0)), `in ${fmtNum(u.tokensIn)} · out ${fmtNum(u.tokensOut)}`, 'think'],
+    ['可用模型', (j.models||[]).length, j.standaloneActive? '免桌面端模式':'本地引擎模式', ''],
+    ['API Key', j.keyCount, j.keyCount? '看板管理':'未配置，本机免密', '']
+  ].map(([k,v,s,c])=>`<div class="card ${c}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s||''}</div></div>`).join('');
+
+  // 运行模式三卡
+  const sa = j.standaloneSession;
+  $('#saState').textContent = j.standaloneActive ? '已启用' : (sa ? '有缓存' : '未启用');
+  $('#saBadge').className = 'badge mini ' + (j.standaloneActive?'ok':(sa?'warn':''));
+  $('#saBadge').textContent = j.standaloneActive ? '运行中' : (sa ? '待验证' : '未启用');
+  $('#saUser').textContent = sa?.userId || '—';
+  $('#saCookie').textContent = sa ? `${sa.cookieCount} cookie` : '0 cookie';
+
+  $('#engState').textContent = j.upstreamSource === 'standalone' ? '未使用' : (ready ? '已连接' : '未就绪');
+  $('#engBadge').className = 'badge mini ' + (j.upstreamSource !== 'standalone' && ready ? 'ok' : '');
+  $('#engBadge').textContent = j.upstreamSource === 'standalone' ? '未使用' : (ready ? '运行中' : '未就绪');
+  $('#engAddr').textContent = j.upstreamSource === 'standalone' ? '—' : (j.upstream || '—');
+  $('#engModelCount').textContent = (j.models||[]).length + ' 模型';
+  $('#cardStandalone').classList.toggle('active', !!j.standaloneActive);
+  $('#cardEngine').classList.toggle('active', !j.standaloneActive && ready);
+
+  const MODES = { auto:'自动（优先免桌面端）', standalone:'仅免桌面端', engine:'仅本地引擎' };
+  $('#modeName').textContent = MODES[j.mode] || j.mode;
+  $('#modeBadge').textContent = j.standaloneActive ? '免桌面端' : (ready ? '本地引擎' : '未就绪');
+  $('#modeDesc').textContent = j.standaloneActive
+    ? '直连云端免费通道，无需开 MiMo 应用；限流时自动等待，不反复登录'
+    : (j.autoStart ? '失败时自动拉起 MiMo 桌面端' : '不会自动拉起桌面端');
+
+  const cdEl = $('#saCooldown');
+  if (cdEl) cdEl.innerHTML = j.cloudCooldownSec > 0
+    ? `<span class="badge mini warn">冷却中 ${j.cloudCooldownSec}s</span> <span style="font-size:11px">${esc((j.cloudCooldownReason||'').slice(0,50))}</span>`
+    : '<span class="badge mini ok">无</span>';
+
+  $('#recModel').textContent = recommendedModel();
+  const step3 = $('#step3Model');
+  if (step3) step3.textContent = recommendedModel();
+
+  $('#sPid').textContent = j.pid;
+  $('#sAddr').textContent = `127.0.0.1:${j.port}`;
+  $('#sUptime').textContent = fmtDur(j.uptimeSec);
+  $('#sMode').textContent = MODES[j.mode] || j.mode;
+  $('#sAuto').textContent = j.autoStart ? '已开启' : '已关闭';
+  $('#sWarm').textContent = j.warmup ? '已开启' : '已关闭';
+  $('#sUp').textContent = j.upstream || '未就绪';
+  $('#iKey').textContent = (STATE.keys.find(k=>k.enabled!==false)?.masked) || (j.keyCount? '（见设置页）' : '(未配置，本机免密)');
+}
+
+/* ---------------- 免桌面端 ---------------- */
+async function refreshStandalone(){
+  const j = await api('/api/standalone/status');
+  if(!j.ok) return;
+  STATE.sa = j;
+  const c = j.credentials || {};
+  const dc = j.durableCredentials;
+  let credTxt = '未找到';
+  if (c.found) {
+    if (c.source === 'chromium-cookie') credTxt = '桌面端登录态 (SSO)';
+    else if (c.source === 'local-cache') credTxt = '本地长效缓存（桌面端锁库时兜底）';
+    else credTxt = c.source;
+    if (dc) credTxt += ' + 长效缓存已存档';
+  } else credTxt = c.error || '未找到';
+  $('#saCred').textContent = credTxt;
+  $('#saUser2').textContent = c.userId || j.session?.userId || '—';
+  $('#saCookie2').textContent = j.session ? `${j.session.cookieCount} 个` : '—';
+  $('#saCacheAt').textContent = j.session ? fmtTime(new Date(j.session.at).toISOString()) : '无';
+  $('#saModelCount').textContent = j.active ? `${STATE.stats?.models?.length || 0} 个` : '—';
+  $('#saTitle').textContent = j.active ? '运行中' : (j.session ? '有缓存' : '未启用');
+  $('#saHint').textContent = c.found
+    ? '凭据已就绪。点「登录 / 刷新会话」即可建立云端会话，之后无需开启 MiMo 桌面端。'
+    : '未找到小米登录凭据 —— 请先在 MiMo 桌面端登录一次，登录态会被自动提取。';
+}
+
+async function refreshQuota(force=false){
+  const j = await api(force ? '/api/quota/refresh' : '/api/quota', { method: force ? 'POST' : 'GET' });
+  if(!j.ok) return;
+  const q = j.quota || {};
+  STATE.quota = q;
+  const available = q.state === 'available';
+  $('#quotaState').innerHTML = available
+    ? '<span class="badge mini ok">可用</span>'
+    : `<span class="badge mini warn">${q.state === 'login_required' ? '未登录开放平台' : '不可用'}</span>`;
+  $('#quotaSource').textContent = q.source === 'xiaomi-open-platform' ? '小米开放平台（与桌面免费通道可能独立）' : (q.source || '—');
+  $('#quotaAt').textContent = fmtTime(q.fetchedAt);
+  $('#quotaBalance').textContent = q.balance?.total == null ? '—' : `${q.balance.total} ${q.balance.currency || ''}`.trim();
+  $('#quotaPlan').textContent = q.tokenPlan?.remaining == null
+    ? '—'
+    : `${fmtNum(q.tokenPlan.remaining)} / ${q.tokenPlan.total == null ? '?' : fmtNum(q.tokenPlan.total)}`;
+  $('#quotaWeekly').textContent = q.tokenPlan?.weekly?.remaining == null
+    ? '—'
+    : `${fmtNum(q.tokenPlan.weekly.remaining)} / ${q.tokenPlan.weekly.total == null ? '?' : fmtNum(q.tokenPlan.weekly.total)}`;
+  const local = q.local?.usage || {};
+  $('#quotaLocal').textContent = `${fmtNum(local.total || 0)} 次 · in ${fmtNum(local.tokensIn || 0)} / out ${fmtNum(local.tokensOut || 0)}（非剩余额度）`;
+  if(!available && q.reason) $('#quotaState').title = q.reason;
+
+  // 免费通道（桌面端同款）：剩余百分比 + 重置日期 + 套餐
+  const f = q.free;
+  const freeEl = $('#quotaFree'), planEl = $('#quotaFreePlan');
+  if (f && f.state === 'available') {
+    const rem = f.remainingPercent;
+    const cls = rem >= 50 ? 'ok' : rem >= 20 ? 'warn' : 'err';
+    freeEl.innerHTML = `<span class="badge mini ${cls}">剩 ${rem}%</span>（已用 ${f.usedPercent}%）`;
+    const planTitle = f.plan?.title || f.plan?.code || '';
+    const period = f.plan?.status ? (f.plan.status === 'ACTIVE' ? '生效中' : f.plan.status) : '';
+    planEl.textContent = [planTitle, period].filter(Boolean).join(' · ') + `　重置 ${f.resetDate}`;
+  } else if (f && f.state === 'login_required') {
+    freeEl.innerHTML = '<span class="badge mini warn">未登录</span>';
+    planEl.textContent = '登录小米账号后可见';
+  } else {
+    freeEl.textContent = '—';
+    planEl.textContent = f?.reason ? `不可用：${f.reason.slice(0, 60)}` : '—';
+  }
+  // 平台凭据来源 + 死胡同提示
+  const SRC = { manual: '看板导入的 Cookie', 'sso-derive': '账号池 SSO 自动登录', 'desktop-cookie': '桌面端缓存' };
+  $('#quotaCookieSrc').textContent = q.cookieSource ? (SRC[q.cookieSource] || q.cookieSource) : '未配置';
+  const hint = $('#quotaHint');
+  if (q.state === 'login_required') {
+    hint.style.display = 'block';
+    hint.textContent = q.cookieHint || '开放平台需要先在浏览器登录一次：点「登录开放平台」按指引粘贴 Cookie，一次即可长期使用。';
+  } else if (q.state === 'unavailable' && q.reason) {
+    hint.style.display = 'block';
+    hint.textContent = '开放平台返回了无法识别的数据：' + q.reason;
+  } else {
+    hint.style.display = 'none';
+    hint.textContent = '';
+  }
+}
+
+$('#quotaLogin').onclick = ()=>{
+  confirmModal('登录开放平台（platform.xiaomimimo.com）', `
+    <div style="line-height:1.9;font-size:13px">
+      <b>两步接入</b>（一次即可，Cookie 长期有效）：<br>
+      1. <a href="https://platform.xiaomimimo.com/" target="_blank" rel="noopener" style="color:var(--accent,#4da3ff)">点此打开小米 MiMo 开放平台</a>，用小米账号登录（验证码/二次验证由官方页面处理）。<br>
+      2. 登录后按 F12 打开开发者工具 → Network（网络）→ 随便点一个 api 请求 → Request Headers 里的 <span class="mono">Cookie:</span> 整行值，复制粘贴到下面：<br>
+      <textarea id="platformCookieInput" rows="5" placeholder="api-platform_serviceToken=...; userId=...; （或直接粘贴整段 Cookie 头）" style="width:100%;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:6px;font-family:monospace;background:var(--bg,#111);color:inherit"></textarea>
+      <span style="color:var(--dim);font-size:12px">代理只提取 <span class="mono">api-platform_serviceToken / userId / api-platform_ph / api-platform_slh</span> 四项，存本机 <span class="mono">accounts/mimo-platform.json</span>（0600 权限）。账号池的 SSO 自动登录也会不定期尝试接管这一步。</span>
+    </div>`,
+    async ()=>{
+      const raw = $('#platformCookieInput')?.value?.trim();
+      if(!raw){ toast('请先粘贴 Cookie'); return; }
+      toast('正在验证并刷新额度…', 8000);
+      const j = await api('/api/platform/cookie',{method:'POST',body:JSON.stringify({cookie:raw})});
+      toast(j.ok ? '开放平台 Cookie 已生效，额度已刷新' : '导入失败: '+(j.error||''), 10000);
+      refreshQuota();
+    });
+};
+
+/* ---------------- Key ---------------- */
+async function refreshKeys(){
+  const j = await api('/api/keys');
+  if(!j.ok) return;
+  STATE.keys = j.keys;
+  $('#keyCount').textContent = j.keys.length + ' 个';
+  $('#iKey').textContent = (j.keys.find(k=>k.enabled!==false)?.masked) || (STATE.stats?.keyCount? '（见设置页）':'(未配置，本机免密)');
+  if(!j.keys.length){
+    $('#keyList').innerHTML = '<div class="empty">还没有 Key —— 未配置时本机可免密直连；要共享给别人请生成一个</div>';
+    return;
+  }
+  // 卡片式列表（对齐 wb-proxy 的 key-card）
+  $('#keyList').innerHTML = j.keys.map(k=>`
+    <div class="key-card ${k.enabled?'':'disabled'}">
+      <div class="key-card-main">
+        <div style="min-width:0;flex:1">
+          <div class="key-name">
+            ${esc(k.name)}
+            <span class="badge ${k.enabled?'ok':'bad'}">${k.enabled?'启用':'停用'}</span>
+            ${k.note? `<span class="badge mini">${esc(k.note)}</span>`:''}
+          </div>
+          <div class="key-val">${k.masked}</div>
+          <div style="font-size:11px;color:var(--dim-light);margin-top:3px">创建于 ${fmtTime(new Date(k.createdAt).toISOString())}</div>
+        </div>
+        <div class="toolbar">
+          <button data-act="reveal" data-id="${k.id}">显示</button>
+          <button data-act="copy" data-id="${k.id}">复制</button>
+          <button data-act="toggle" data-id="${k.id}" data-on="${k.enabled?0:1}">${k.enabled?'停用':'启用'}</button>
+          <button class="danger" data-act="del" data-id="${k.id}">删除</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+/* ---------------- 模型 ---------------- */
+async function refreshModels(){
+  const j = await api('/api/models');
+  if(!j.ok) return;
+  STATE.models = j.models;
+  $('#modelCount').textContent = j.models.length;
+  $('#modelMode').textContent = j.mode === 'standalone' ? '（免桌面端模式）' : '（本地引擎模式）';
+  if(!j.models.length){ $('#modelRows').innerHTML='<tr><td colspan="6" class="empty">上游未就绪</td></tr>'; return; }
+  $('#modelRows').innerHTML = j.models.map(m=>{
+    const cap = m.capability || {};
+    const ctx = cap.deepProbe?.contextWindow || cap.declared?.contextWindow || '—';
+    const out = cap.deepProbe?.maxOutput || cap.declared?.maxOutput || m.maxOutput;
+    const probe = cap.observedAt ? `已探测 ${fmtTime(cap.observedAt)}` : '等待探测';
+    return `
+    <tr>
+      <td class="mono">${esc(m.id)}</td>
+      <td class="mono" style="color:var(--dim)">${(m.alias||[]).join(', ')||'—'}</td>
+      <td>${ctx === '—' ? '—' : fmtNum(ctx)}</td>
+      <td>${fmtNum(out)} <span class="hint-inline">${esc(probe)}</span></td>
+      <td>${m.reasoningEffort?'<span class="badge ok">支持</span>':'<span class="badge warn">自动丢弃</span>'}</td>
+      <td style="color:var(--dim);font-size:12px">${esc(m.note||'')}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ---------------- 数据指标 ---------------- */
+function renderAnalytics(){
+  const u = STATE.stats?.usage || {};
+  const total = u.total || 0;
+  $('#kpiCards').innerHTML = [
+    ['总请求数', fmtNum(total), '', 'accent'],
+    ['成功 / 失败', `${u.ok||0} / ${u.fail||0}`, '', (u.fail? 'err':'accent2')],
+    ['成功率', (u.successRate||0)+'%', '', u.successRate>=99?'accent2':'warn'],
+    ['平均延迟', (u.avgLatencyMs||0)+' ms', '', ''],
+    ['输入 tokens', fmtNum(u.tokensIn), '', 'think'],
+    ['输出 tokens', fmtNum(u.tokensOut), '', 'think']
+  ].map(([k,v,s,c])=>`<div class="card ${c}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s||''}</div></div>`).join('');
+
+  const byModel = u.byModel || {};
+  const mTotal = Object.values(byModel).reduce((a,b)=>a+b,0) || 1;
+  const mRows = Object.entries(byModel).sort((a,b)=>b[1]-a[1]);
+  $('#distTotal').textContent = mRows.length ? `${mRows.length} 个模型` : '';
+  $('#distRows').innerHTML = mRows.length ? mRows.map(([m,n])=>{
+    const pct = n/mTotal*100;
+    return `<tr><td class="mono">${esc(m)}</td><td>${fmtNum(n)}</td><td>${pct.toFixed(1)}%</td><td>${bar(pct)}</td></tr>`;
+  }).join('') : '<tr><td colspan="4" class="empty">暂无数据</td></tr>';
+
+  const byKey = u.byKey || {};
+  const kTotal = Object.values(byKey).reduce((a,b)=>a+b,0) || 1;
+  const kRows = Object.entries(byKey).sort((a,b)=>b[1]-a[1]);
+  $('#keyStatTotal').textContent = kRows.length ? `${kRows.length} 个来源` : '';
+  $('#keyStatRows').innerHTML = kRows.length ? kRows.map(([k,n])=>{
+    const pct = n/kTotal*100;
+    return `<tr><td>${esc(k)}</td><td>${fmtNum(n)}</td><td>${pct.toFixed(1)}%</td><td>${bar(pct,'ok')}</td></tr>`;
+  }).join('') : '<tr><td colspan="4" class="empty">暂无数据</td></tr>';
+
+  const rows = STATE.usage || [];
+  const lat = rows.map(r=>r.latencyMs).filter(x=>typeof x === 'number' && x>0);
+  const streams = rows.filter(r=>r.stream).length;
+  $('#stAvg').textContent = (u.avgLatencyMs||0)+' ms';
+  $('#stMinMax').textContent = lat.length ? `${Math.min(...lat)} / ${Math.max(...lat)} ms` : '—';
+  $('#stStream').textContent = rows.length ? `${streams} / ${rows.length}（${(streams/rows.length*100).toFixed(0)}%）` : '—';
+  $('#stOkFail').textContent = `${u.ok||0} / ${u.fail||0}`;
+  $('#stRate').textContent = (u.successRate||0)+'%';
+  $('#stLast').textContent = fmtTime(u.lastAt);
+}
+
+/* ---------------- 流水（暗色终端 + 分页） ---------------- */
+let LOG_PAGE = 1;
+const LOG_PAGE_SIZE = 50;
+
+function logTag(r){
+  if(!r.ok) return '<span class="log-tag tag-err">ERR</span>';
+  if(r.stream) return '<span class="log-tag tag-stream">STREAM</span>';
+  return '<span class="log-tag tag-ok">OK</span>';
+}
+function hhmmss(iso){
+  try { return new Date(iso).toLocaleTimeString('zh-CN',{hour12:false}); } catch { return '--:--:--'; }
+}
+
+function renderTerm(){
+  const rows = STATE.usage || [];
+  const total = rows.length;
+  const pages = Math.max(1, Math.ceil(total / LOG_PAGE_SIZE));
+  if(LOG_PAGE > pages) LOG_PAGE = pages;
+  if(LOG_PAGE < 1) LOG_PAGE = 1;
+  const slice = rows.slice((LOG_PAGE-1)*LOG_PAGE_SIZE, LOG_PAGE*LOG_PAGE_SIZE);
+
+  $('#logCount').textContent = total ? `共 ${total} 条` : '暂无';
+  $('#termInfo').textContent = total ? `第 ${LOG_PAGE}/${pages} 页 · 每页 ${LOG_PAGE_SIZE} 条` : '—';
+  $('#pgInfo').textContent = total ? `第 ${LOG_PAGE} / ${pages} 页，共 ${total} 条` : '—';
+
+  if(!slice.length){
+    $('#termBody').innerHTML = '<div class="log-empty">暂无请求 —— 调用一次 /v1/chat/completions 就会出现在这里</div>';
+  } else {
+    $('#termBody').innerHTML = slice.map(r=>{
+      const tok = (r.promptTokens||0) + (r.completionTokens||0);
+      const tokTxt = tok ? `<span class="log-dim">tok</span> <span class="log-num">${fmtNum(r.promptTokens)}→${fmtNum(r.completionTokens)}</span>` : '';
+      const errTxt = (!r.ok && r.error) ? ` <span class="log-dim">${esc(String(r.error).slice(0,90))}</span>` : '';
+      return `<div class="log-line">
+        <span class="log-ts">${hhmmss(r.at)}</span>
+        ${logTag(r)}
+        <span class="log-msg">${esc(r.model||'?')} <span class="log-dim">via</span> ${esc(r.keyName||'?')} ${tokTxt} <span class="log-dim">${r.latencyMs||0}ms</span>${errTxt}</span>
+      </div>`;
+    }).join('');
+  }
+
+  $('#pgFirst').disabled = LOG_PAGE <= 1;
+  $('#pgPrev').disabled  = LOG_PAGE <= 1;
+  $('#pgNext').disabled  = LOG_PAGE >= pages;
+  $('#pgLast').disabled  = LOG_PAGE >= pages;
+
+  // 表格视图（默认折叠）
+  $('#usageRows').innerHTML = slice.length ? slice.map(r=>`
+    <tr>
+      <td class="mono" style="font-size:11px">${fmtTime(r.at)}</td>
+      <td class="mono">${esc(r.model||'—')}${r.stream?' <span class="badge mini">流</span>':''}</td>
+      <td>${esc(r.keyName||'—')}</td>
+      <td><span class="badge ${r.ok?'ok':'bad'}">${r.ok?'200':(r.status||'ERR')}</span></td>
+      <td>${fmtNum(r.promptTokens)}</td>
+      <td>${fmtNum(r.completionTokens)}</td>
+      <td>${r.latencyMs||0} ms</td>
+    </tr>`).join('') : '<tr><td colspan="7" class="empty">暂无请求</td></tr>';
+}
+
+async function refreshUsage(){
+  const j = await api('/api/usage?limit=500');
+  if(!j.ok) return;
+  STATE.usage = j.rows || [];
+  renderTerm();
+  if(currentMainTab === 'analytics') renderAnalytics();
+}
+
+/* ---------------- 模态弹窗 ---------------- */
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.modal-mask').forEach(m=>{
+  m.addEventListener('click', e=>{ if(e.target === m) m.classList.remove('show'); });
+});
+document.addEventListener('keydown', e=>{
+  if(e.key === 'Escape') document.querySelectorAll('.modal-mask.show').forEach(m=>m.classList.remove('show'));
+});
+
+let PENDING_KEY = null;
+function showKeyModal(key, name){
+  PENDING_KEY = key;
+  $('#kmTitle').textContent = name ? `API Key · ${name}` : 'API Key';
+  $('#kmKey').textContent = key;
+  $('#kmBase').textContent = `http://127.0.0.1:${STATE.stats?.port||8788}/v1`;
+  $('#kmModel').textContent = recommendedModel();
+  openModal('keyModal');
+}
+function confirmModal(title, bodyHtml, onOk){
+  $('#cmTitle').textContent = title;
+  $('#cmBody').innerHTML = bodyHtml;
+  const btn = $('#cmOk');
+  const fresh = btn.cloneNode(true);      // 清掉上一次的监听
+  btn.parentNode.replaceChild(fresh, btn);
+  fresh.addEventListener('click', ()=>{ closeModal('confirmModal'); onOk(); });
+  openModal('confirmModal');
+}
+
+async function refreshAll(){
+  try { await refreshStats(); await refreshStandalone(); await refreshAccounts(); await refreshKeys(); await refreshModels(); await refreshUsage(); await refreshQuota(); }
+  catch(e){ /* 未登录时静默 */ }
+}
+
+/* ---------------- 账号池（对标 wb-proxy 账号管理） ---------------- */
+let ACCOUNTS = [];
+async function refreshAccounts(){
+  const j = await api('/api/accounts');
+  if(!j || !j.ok) return;
+  ACCOUNTS = j.accounts || [];
+  $('#poolTitle').textContent = `${j.size} 个账号 · ${j.ready} 个就绪`;
+  const badge = $('#poolBadge');
+  if(!j.size){ badge.className='badge mini'; badge.textContent='空'; }
+  else if(j.ready>0){ badge.className='badge mini ok'; badge.textContent=`${j.ready}/${j.size} 就绪`; }
+  else { badge.className='badge mini err'; badge.textContent='无就绪'; }
+  if(!ACCOUNTS.length){
+    $('#poolRows').innerHTML = '<tr><td colspan="5" class="empty">账号池为空 —— 旧登录态会自动迁移进来，或用下方按钮添加</td></tr>';
+    return;
+  }
+  const SRC = {password:'密码登录', manual:'凭据导入', desktop:'桌面端导入', import:'导入', legacy:'自动迁移'};
+  $('#poolRows').innerHTML = ACCOUNTS.map(a=>{
+    const status = !a.enabled ? '<span class="badge mini">已禁用</span>'
+      : a.inCooldown ? `<span class="badge mini warn">冷却 ${a.cooldownForSec}s</span>`
+      : a.ready ? '<span class="badge mini ok">就绪</span>'
+      : '<span class="badge mini warn">异常</span>';
+    return `<tr>
+      <td><b>${esc(a.nickname)}</b><br><span class="mono" style="font-size:11px;color:var(--dim)">${esc(a.uid)}</span></td>
+      <td>${esc(SRC[a.source] || a.source)}</td>
+      <td>${status}${a.lastError?`<br><span style="font-size:11px;color:var(--dim)" title="${esc(a.lastError)}">${esc(a.lastError.slice(0,36))}…</span>`:''}</td>
+      <td>${a.lastUsedAt? fmtTime(new Date(a.lastUsedAt).toISOString()) : '—'}</td>
+      <td>
+        <button onclick="poolTest('${esc(a.uid)}')">测试</button>
+        <button onclick="poolRefresh('${esc(a.uid)}')">重派生</button>
+        <button onclick="poolToggle('${esc(a.uid)}', ${!a.enabled})">${a.enabled?'禁用':'启用'}</button>
+        <button class="danger" onclick="poolDelete('${esc(a.uid)}','${esc(a.nickname)}')">删除</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+window.poolTest = async (uid)=>{
+  toast('测试中…');
+  const j = await api('/api/accounts/test',{method:'POST',body:JSON.stringify({uid})});
+  toast(j.ok? `测试通过（${j.latencyMs}ms）` : '测试失败: '+(j.error||''), 6000);
+  refreshAccounts();
+};
+window.poolRefresh = async (uid)=>{
+  toast('重派生会话…');
+  const j = await api('/api/accounts/refresh',{method:'POST',body:JSON.stringify({uid})});
+  toast(j.ok? '会话已重派生' : '失败: '+ (j.results?.[0]?.error || j.error || ''), 6000);
+  refreshAccounts();
+};
+window.poolToggle = async (uid, enabled)=>{
+  await api('/api/accounts/enabled',{method:'POST',body:JSON.stringify({uid,enabled})});
+  toast(enabled? '已启用' : '已禁用');
+  refreshAccounts();
+};
+window.poolDelete = (uid, name)=>{
+  confirmModal('删除账号', `确定删除 <b>${esc(name)}</b>（${esc(uid)}）？<br><span style="color:var(--dim)">凭据文件将从账号池中删除，可随时重新导入。</span>`,
+    async ()=>{ await api('/api/accounts/delete',{method:'POST',body:JSON.stringify({uid})}); toast('已删除'); refreshAccounts(); });
+};
+$('#poolAddPwd').onclick = ()=>{
+  confirmModal('账号密码登录', `
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <input id="poolUser" placeholder="小米账号（手机号 / 邮箱 / ID）" style="padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg,#111);color:inherit">
+      <input id="poolPass" type="password" placeholder="密码" style="padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg,#111);color:inherit">
+    </div>
+    <div class="hint">小米已把密码直连接口迁移到带风控的新登录前端；若本接口被拦（提示验证码/二次验证/接口关闭），请改用「从桌面端导入」或「导入凭据」—— passToken 是长效凭据，导入一次长期有效。</div>`,
+    async ()=>{
+      const user = $('#poolUser')?.value?.trim(); const password = $('#poolPass')?.value || '';
+      if(!user || !password){ toast('需要账号和密码'); return; }
+      toast('正在登录…', 8000);
+      const j = await api('/api/accounts/add-password',{method:'POST',body:JSON.stringify({user,password})});
+      toast(j.ok? `已添加账号 ${j.account?.nickname || j.account?.uid}` : '登录失败: '+(j.error||''), 9000);
+      refreshAccounts();
+    });
+};
+$('#poolAddManual').onclick = ()=>{
+  confirmModal('导入凭据（userId + passToken）', `
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <input id="poolMUid" placeholder="userId（纯数字的小米账号 ID）" style="padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg,#111);color:inherit">
+      <input id="poolMToken" placeholder="passToken（长效登录凭据）" style="padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg,#111);color:inherit">
+      <input id="poolMC" placeholder="cUserId（可选）" style="padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg,#111);color:inherit">
+    </div>
+    <div class="hint">来源：MiMo 桌面端 cookie 库（Xiaomi MiMo/Network/Cookies，sqlite 里的 passToken 行），或浏览器登录 account.xiaomi.com 后从 devtools 复制 .xiaomi.com 域的 passToken cookie。</div>`,
+    async ()=>{
+      const userId = $('#poolMUid')?.value?.trim(); const passToken = $('#poolMToken')?.value?.trim();
+      const cUserId = $('#poolMC')?.value?.trim() || '';
+      if(!userId || !passToken){ toast('需要 userId 和 passToken'); return; }
+      toast('正在验证凭据并建立会话…', 8000);
+      const j = await api('/api/accounts/add-manual',{method:'POST',body:JSON.stringify({userId,passToken,cUserId})});
+      toast(j.ok? '凭据导入成功，会话已就绪' : '导入失败: '+(j.error||''), 9000);
+      refreshAccounts();
+    });
+};
+$('#poolImportDesktop').onclick = async ()=>{
+  toast('正在扫描桌面端 cookie 库…', 6000);
+  const j = await api('/api/accounts/import-desktop',{method:'POST'});
+  toast(j.ok
+    ? `导入 ${j.added.length} 个账号${j.skipped.length? `，跳过 ${j.skipped.length} 个已存在`:''}${j.failed.length? `，失败 ${j.failed.length}`:''}`
+    : '导入失败: '+(j.error||''), 8000);
+  refreshAccounts();
+};
+$('#poolRefreshAll').onclick = async ()=>{
+  toast('正在重派生全部账号会话…', 8000);
+  const j = await api('/api/accounts/refresh',{method:'POST',body:JSON.stringify({})});
+  toast(j.ok? '全部账号会话已重派生' : '部分失败，详见服务端日志', 8000);
+  refreshAccounts();
+};
+$('#poolEnableAll').onclick = async ()=>{
+  await api('/api/accounts/enabled-all',{method:'POST',body:JSON.stringify({enabled:true})});
+  toast('已全部启用'); refreshAccounts();
+};
+$('#poolExport').onclick = ()=>{ location.href = '/api/accounts/export'; };
+$('#poolImport').onclick = ()=>{
+  confirmModal('导入账号池', `
+    <textarea id="poolImportJson" rows="8" placeholder='粘贴导出的账号池 JSON（{"format":"mimo-accounts",...} 或账号数组）' style="width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;font-family:monospace;background:var(--bg,#111);color:inherit"></textarea>
+    <div class="hint">支持本代理的导出文档、账号数组，或单个账号对象（uid/userId + passToken 必填）。</div>`,
+    async ()=>{
+      const raw = $('#poolImportJson')?.value?.trim();
+      if(!raw){ toast('请粘贴 JSON'); return; }
+      const j = await api('/api/accounts/import',{method:'POST',body:JSON.stringify({json: raw})});
+      toast(j.ok? `导入 ${j.added.length} 个账号${j.skipped.length? `，跳过 ${j.skipped.length}`:''}` : '导入失败: '+(j.invalid?.[0]?.reason || '请检查 JSON 格式'), 9000);
+      refreshAccounts();
+    });
+};
+
+/* ---------------- 交互 ---------------- */
+$('#addKeyBtn').onclick = async ()=>{
+  const name = $('#newKeyName').value.trim() || '未命名';
+  const j = await api('/api/keys/add',{method:'POST',body:JSON.stringify({name})});
+  if(j.ok){
+    $('#newKeyName').value='';
+    try { await navigator.clipboard.writeText(j.key.key); toast('已生成并复制到剪贴板'); }
+    catch { toast('已生成新 Key'); }
+    refreshKeys(); refreshStats();
+  } else toast('生成失败');
+};
+
+$('#keyList').addEventListener('click', async (e)=>{
+  const b = e.target.closest('button'); if(!b) return;
+  const {act,id} = b.dataset;
+  const k = STATE.keys.find(x=>x.id===id);
+  if(act==='reveal'){
+    const j = await api('/api/keys/reveal',{method:'POST',body:JSON.stringify({id})});
+    if(j.ok) showKeyModal(j.key, k?.name);
+  } else if(act==='copy'){
+    const j = await api('/api/keys/reveal',{method:'POST',body:JSON.stringify({id})});
+    if(j.ok){ try{ await navigator.clipboard.writeText(j.key); toast('已复制到剪贴板'); }catch{ showKeyModal(j.key, k?.name); } }
+  } else if(act==='toggle'){
+    await api('/api/keys/toggle',{method:'POST',body:JSON.stringify({id, enabled: b.dataset.on==='1'})});
+    refreshKeys(); refreshStats();
+  } else if(act==='del'){
+    confirmModal('删除 API Key',
+      `确定删除 <b>${esc(k?.name||'')}</b>？<br><span style="color:var(--dim)">删除后立刻失效，无法恢复。</span>`,
+      async ()=>{
+        await api('/api/keys/remove',{method:'POST',body:JSON.stringify({id})});
+        toast('已删除'); refreshKeys(); refreshStats();
+      });
+  }
+});
+
+/* ---- 模态按钮 ---- */
+$('#kmCopy').onclick = async ()=>{
+  if(!PENDING_KEY) return;
+  try{ await navigator.clipboard.writeText(PENDING_KEY); toast('已复制到剪贴板'); }catch{ toast('复制失败，请手动选中'); }
+};
+$('#kmCopyCurl').onclick = async ()=>{
+  const txt = `curl http://127.0.0.1:${STATE.stats?.port||8788}/v1/chat/completions \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer ${PENDING_KEY}" \\\n  -d '{"model":"${recommendedModel()}","messages":[{"role":"user","content":"你好"}]}'`;
+  try{ await navigator.clipboard.writeText(txt); toast('curl 示例已复制'); }catch{ toast('复制失败'); }
+};
+$('#kmCopyPy').onclick = async ()=>{
+  const txt = `from openai import OpenAI\nclient = OpenAI(\n    base_url="http://127.0.0.1:${STATE.stats?.port||8788}/v1",\n    api_key="${PENDING_KEY}",\n)\nr = client.chat.completions.create(\n    model="${recommendedModel()}",\n    messages=[{"role":"user","content":"你好"}],\n)\nprint(r.choices[0].message.content)`;
+  try{ await navigator.clipboard.writeText(txt); toast('Python 示例已复制'); }catch{ toast('复制失败'); }
+};
+
+/* ---- 分页 ---- */
+$('#pgFirst').onclick = ()=>{ LOG_PAGE = 1; renderTerm(); };
+$('#pgPrev').onclick  = ()=>{ LOG_PAGE--; renderTerm(); };
+$('#pgNext').onclick  = ()=>{ LOG_PAGE++; renderTerm(); };
+$('#pgLast').onclick  = ()=>{ LOG_PAGE = Math.ceil((STATE.usage||[]).length/LOG_PAGE_SIZE)||1; renderTerm(); };
+
+$('#setPwBtn').onclick = async ()=>{
+  const a=$('#pw1').value, b=$('#pw2').value;
+  if(a.length<4) return toast('密码至少 4 位');
+  if(a!==b) return toast('两次输入不一致');
+  const j = await api('/api/password',{method:'POST',body:JSON.stringify({password:a})});
+  toast(j.ok?'密码已更新':'修改失败');
+  if(j.ok){ $('#pw1').value=''; $('#pw2').value=''; $('#defaultHint').style.display='none'; $('#pwdState').textContent=''; }
+};
+
+$('#logoutBtn').onclick = async ()=>{ await api('/api/logout',{method:'POST'}); location.reload(); };
+$('#btnRefreshLogs').onclick = ()=>refreshUsage();
+$('#btnExportLogs').onclick = ()=>{
+  const rows = STATE.usage || [];
+  if(!rows.length) return toast('没有可导出的数据');
+  const blob = new Blob([JSON.stringify(rows,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `mimo-usage-${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+  toast(`已导出 ${rows.length} 条`);
+};
+$('#btnResetLogs').onclick = ()=>{
+  confirmModal('清空用量流水',
+    `将删除全部 <b>${(STATE.usage||[]).length}</b> 条请求记录。<br><span style="color:var(--dim)">此操作不可恢复。</span>`,
+    async ()=>{ await api('/api/usage/reset',{method:'POST'}); toast('已清空'); refreshAll(); });
+};
+$('#btnWarmup').onclick = async ()=>{ await api('/api/upstream/warmup',{method:'POST'}); toast('已触发预热，稍等几秒'); };
+$('#btnReconnect').onclick = async ()=>{
+  toast('正在重连上游…');
+  const j = await api('/api/upstream/restart',{method:'POST'});
+  toast(j.ok? '上游已重连: '+(j.upstream||'') : '重连失败: '+(j.error||''), 4500);
+  refreshAll();
+};
+$('#btnTest').onclick = async ()=>{
+  toast('正在测试调用…', 4000);
+  const j = await api('/api/test',{method:'POST',body:JSON.stringify({})});
+  if(j.ok) toast(`✅ ${j.mode === 'standalone' ? '免桌面端' : '本地引擎'}调用成功 · ${j.latencyMs}ms · "${(j.content||'').slice(0,24)}"`, 6500);
+  else toast(`❌ 失败: ${j.error||('HTTP '+j.status)}`, 8500);
+  refreshAll();
+};
+$('#saLogin').onclick = async ()=>{
+  toast('正在登录小米账号（约 3-5 秒）…', 5000);
+  const j = await api('/api/standalone/login',{method:'POST'});
+  toast(j.ok ? `登录成功，userId=${j.userId}，cookie ${j.cookieCount} 个` : '登录失败: '+(j.error||''), 6500);
+  refreshAll();
+};
+$('#btnProbeAll').onclick = async ()=>{
+  const model = STATE.models?.[0]?.id;
+  if(!model){ toast('当前没有可探测模型'); return; }
+  toast('后台已开始按队列探测，新模型会逐个更新能力…', 5000);
+  const j = await api('/api/models/probe',{method:'POST',body:JSON.stringify({model})});
+  toast(j.ok ? '探测完成，刷新模型库查看结果' : '探测失败: '+(j.error||''), 5000);
+  refreshModels();
+};
+$('#quotaRefresh').onclick = async ()=>{
+  toast('正在刷新小米开放平台额度…', 4000);
+  await refreshQuota(true);
+  toast(STATE.quota?.state === 'available' ? '账户额度已刷新' : '未获取到精确额度，请登录 platform.xiaomimimo.com', 5000);
+};
+$('#saTest').onclick = ()=>$('#btnTest').click();
+$('#saLogout').onclick = ()=>{
+  confirmModal('清除会话缓存',
+    `将删除 <span class="mono">accounts/mimo-session.json</span>。<br><span style="color:var(--dim)">下次调用会自动重新登录，不影响凭据本身。</span>`,
+    async ()=>{ await api('/api/standalone/logout',{method:'POST'}); toast('已清除会话缓存'); refreshAll(); });
+};
+$('#btnSwitchMode').onclick = ()=>{
+  const cur = STATE.stats?.mode || 'auto';
+  const next = cur === 'auto' ? 'standalone' : cur === 'standalone' ? 'engine' : 'auto';
+  const LABEL = { auto:'自动（优先免桌面端）', standalone:'仅免桌面端', engine:'仅本地引擎' };
+  confirmModal('切换运行模式',
+    `<div style="line-height:2">
+       <span style="color:var(--dim)">当前</span> ${LABEL[cur]}<br>
+       <span style="color:var(--dim)">改为</span> <b>${LABEL[next]}</b>
+     </div>
+     <div class="hint">会写入 <span class="mono">config.json</span> 并立即热生效，无需重启进程。</div>`,
+    async ()=>{
+      toast('正在切换模式…', 5000);
+      const j = await api('/api/mode',{method:'POST',body:JSON.stringify({mode:next})});
+      if(j.ok){
+        toast(j.ready ? `已切到「${LABEL[next]}」，${j.models} 个模型` : `已切到「${LABEL[next]}」，但上游未就绪: ${j.error||''}`, 6000);
+      } else {
+        toast('切换失败: '+(j.error||''), 7000);
+      }
+      refreshAll();
+    });
+};
+$('#btnCopyCurl').onclick = async ()=>{
+  const k = STATE.keys.find(x=>x.enabled!==false);
+  const key = k ? '(你的Key)' : 'any';
+  const txt = `curl http://127.0.0.1:${STATE.stats?.port||8788}/v1/chat/completions \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer ${key}" \\\n  -d '{"model":"${recommendedModel()}","messages":[{"role":"user","content":"你好"}]}'`;
+  try{ await navigator.clipboard.writeText(txt); toast('curl 示例已复制'); }catch{ toast('复制失败'); }
+};
+$('#btnCopyPy').onclick = async ()=>{
+  const txt = `from openai import OpenAI\nclient = OpenAI(\n    base_url="http://127.0.0.1:${STATE.stats?.port||8788}/v1",\n    api_key="你的API_KEY",\n)\nr = client.chat.completions.create(\n    model="${recommendedModel()}",\n    messages=[{"role":"user","content":"你好"}],\n)\nprint(r.choices[0].message.content)`;
+  try{ await navigator.clipboard.writeText(txt); toast('Python 示例已复制'); }catch{ toast('复制失败'); }
+};
+
+/* ---------------- 启动 ---------------- */
+(async ()=>{
+  const s = await api('/api/session');
+  if(s.ok){
+    hideGate();
+    if(s.mustChangePassword){ $('#defaultHint').style.display='block'; }
+    await refreshAll();
+    let tab='gateway'; try{ tab = localStorage.getItem('mimo_tab') || 'gateway'; }catch{}
+    switchMainTab(tab);
+  } else {
+    showGate();
+  }
+  setInterval(()=>{ if($('#panelGate').style.display==='none') refreshAll(); }, 8000);
+})();
+</script>
+</body>
+</html>

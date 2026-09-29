@@ -1,0 +1,14 @@
+{
+  "name": "mimo-api-proxy",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node mimo-api-proxy.mjs",
+    "check": "node --check mimo-api-proxy.mjs && node --check mimo-gui.mjs && node --check mimo-standalone.mjs && node --check mimo-telemetry.mjs && node --check mimo-runtime.mjs && node --check mimo-quota.mjs && node --check mimo-accounts.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:live": "node test.mjs"
+  }
+}
