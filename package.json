@@ -1,5 +1,7 @@
 {
-  "name": "mimo-api-proxy",
+  "name": "mimo2api-hub",
+  "version": "1.0.0",
+  "description": "小米 MiMo 免费通道多账号 OpenAI 兼容网关",
   "private": true,
   "type": "module",
   "engines": {

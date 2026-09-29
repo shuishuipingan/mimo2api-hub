@@ -1,6 +1,7 @@
 # MiMo2API-Hub — 小米 MiMo 免费通道多账号网关
 
 <p align="center">
+  <a href="https://github.com/shuishuipingan/mimo2api-hub/releases"><img src="https://img.shields.io/badge/Release-v1.0.0-2496ED?style=flat-square" alt="Version 1.0.0"></a>
   <img src="https://img.shields.io/badge/Node.js-22%2B-339933?style=flat-square" alt="Node.js 22+">
   <img src="https://img.shields.io/badge/API-OpenAI_Compatible-412991?style=flat-square" alt="OpenAI API">
   <img src="https://img.shields.io/badge/账号池-多账号轮询-2496ED?style=flat-square" alt="Multi Account">
